@@ -10,6 +10,7 @@ import redis
 from kafka import KafkaConsumer
 from pymongo import MongoClient
 
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [ENRICHER] %(message)s")
 
 MONGO_URI     = os.getenv("MONGO_URI", "mongodb://localhost:27017")
