@@ -1,0 +1,14 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY kitchen_worker.py .
+COPY preprocessor.py .
+COPY enricher.py .
+COPY pizza_prep.json .
+COPY pizza_analysis_lists.json .
+
+# Default command overridden by docker-compose
+CMD ["python", "preprocessor.py"]
