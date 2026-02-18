@@ -2,18 +2,17 @@ version: '3.8'
 
 services:
 
+  # ── Infrastructure ─────────────────────────────────────────
   zookeeper:
     image: confluentinc/cp-zookeeper:7.4.0
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
-    ports:
-      - "2181:2181"
     healthcheck:
       test: ["CMD", "nc", "-z", "localhost", "2181"]
       interval: 10s
       timeout: 5s
-      retries: 10
+      retries: 15
 
   kafka:
     image: confluentinc/cp-kafka:7.4.0
@@ -31,9 +30,9 @@ services:
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
     healthcheck:
       test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
-      interval: 15s
+      interval: 10s
       timeout: 10s
-      retries: 10
+      retries: 20
       start_period: 30s
 
   mongo:
@@ -46,7 +45,7 @@ services:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 10s
       timeout: 5s
-      retries: 10
+      retries: 15
 
   redis:
     image: redis:7.2
@@ -54,10 +53,11 @@ services:
       - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
+      interval: 5s
+      timeout: 3s
+      retries: 15
 
+  # ── Application services ───────────────────────────────────
   api:
     build:
       context: .
@@ -77,10 +77,11 @@ services:
         condition: service_healthy
     restart: on-failure
 
-  kitchen_worker:
+  # Worker א' – "המטבח" (Part 1: worker_kitchen)
+  worker_kitchen:
     build:
       context: .
-      dockerfile: Dockerfile.worker
+      dockerfile: Dockerfile.workers
     command: python kitchen_worker.py
     environment:
       MONGO_URI: mongodb://mongo:27017
@@ -95,10 +96,30 @@ services:
         condition: service_healthy
     restart: on-failure
 
+  # Worker ב' – "מעבד הטקסט" (Part 1 - original, before split)
+  text_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.workers
+    command: python text_worker.py
+    environment:
+      MONGO_URI: mongodb://mongo:27017
+      REDIS_URI: redis://redis:6379
+      KAFKA_BOOTSTRAP: kafka:9092
+    depends_on:
+      kafka:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: on-failure
+
+  # Worker ב' חלק א' – Preprocessor "מעבד הבצק" (Part 2)
   preprocessor:
     build:
       context: .
-      dockerfile: Dockerfile.worker
+      dockerfile: Dockerfile.workers
     command: python preprocessor.py
     environment:
       MONGO_URI: mongodb://mongo:27017
@@ -113,10 +134,11 @@ services:
         condition: service_healthy
     restart: on-failure
 
+  # Worker ב' חלק ב' – Enricher "מומחה התוספות" (Part 2)
   enricher:
     build:
       context: .
-      dockerfile: Dockerfile.worker
+      dockerfile: Dockerfile.workers
     command: python enricher.py
     environment:
       MONGO_URI: mongodb://mongo:27017
