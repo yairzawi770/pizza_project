@@ -17,8 +17,6 @@ import redis
 from kafka import KafkaProducer
 from kafka.errors import NoBrokersAvailable
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [API] %(message)s")
-log = logging.getLogger("api")
 
 # ── ENV ────────────────────────────────────────────────────
 MONGO_URI     = os.getenv("MONGO_URI",      "mongodb://localhost:27017")
@@ -44,10 +42,8 @@ def _kafka_producer(retries: int = 15, delay: int = 5) -> KafkaProducer:
                 bootstrap_servers=KAFKA_SERVERS,
                 value_serializer=lambda v: json.dumps(v).encode("utf-8"),
             )
-            log.info("✅ Kafka producer connected")
             return p
         except NoBrokersAvailable:
-            log.warning(f"⏳ Kafka not ready – attempt {attempt}/{retries}, waiting {delay}s …")
             time.sleep(delay)
     raise RuntimeError("Cannot connect to Kafka after retries")
 
@@ -79,11 +75,6 @@ def _save_and_publish(order_dict: dict) -> None:
 
 @app.post("/uploadfile", summary="העלאת קובץ הזמנות (multipart)")
 async def upload_file(file: UploadFile = File(...)):
-    """
-    POST /uploadfile
-    קולט קובץ JSON עם מערך הזמנות.
-    שומר כל הזמנה ב-MongoDB (PREPARING) ומפרסם ל-Kafka (בנפרד לכל הזמנה).
-    """
     raw = await file.read()
     try:
         orders: list = json.loads(raw)
@@ -93,20 +84,14 @@ async def upload_file(file: UploadFile = File(...)):
     ids = []
     for item in orders:
         o = PizzaOrder(**item)
-        _save_and_publish(o.dict())
+        _save_and_publish(o.model_dump())
         ids.append(o.order_id)
 
     producer.flush()
-    log.info(f"📥 /uploadfile – {len(ids)} orders ingested")
     return {"ingested": len(ids), "order_ids": ids}
-
 
 @app.post("/orders/batch", summary="העלאת מערך הזמנות (JSON body)")
 async def orders_batch(request: Request):
-    """
-    POST /orders/batch
-    קולט JSON body (מערך הזמנות) – זהו ה-endpoint שמופיע ב-acceptance-test curl.
-    """
     try:
         orders: list = await request.json()
     except Exception:
@@ -115,11 +100,10 @@ async def orders_batch(request: Request):
     ids = []
     for item in orders:
         o = PizzaOrder(**item)
-        _save_and_publish(o.dict())
+        _save_and_publish(o.model_dump())
         ids.append(o.order_id)
 
     producer.flush()
-    log.info(f"📥 /orders/batch – {len(ids)} orders ingested")
     return {"ingested": len(ids), "order_ids": ids}
 
 
@@ -138,9 +122,8 @@ async def create_order(pizza_type: str, special_instructions: str = ""):
         is_delivery=False,
         special_instructions=special_instructions,
     )
-    _save_and_publish(order.dict())
+    _save_and_publish(order.model_dump())
     producer.flush()
-    log.info(f"📥 /orders – new order {order.order_id} ({pizza_type})")
     return {"order_id": order.order_id, "status": "PREPARING"}
 
 

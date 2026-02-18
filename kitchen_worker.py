@@ -6,12 +6,10 @@
 import os
 import json
 import time
-import logging
 from kafka import KafkaConsumer
 from pymongo import MongoClient
 import redis
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [KITCHEN] %(message)s")
 
 MONGO_URI     = os.getenv("MONGO_URI", "mongodb://localhost:27017")
 REDIS_URI     = os.getenv("REDIS_URI", "redis://localhost:6379")
@@ -26,21 +24,21 @@ redis_client = redis.Redis(host=redis_host, port=int(redis_port), decode_respons
 
 def main():
     consumer = KafkaConsumer(
-        "pizza-orders",
+        topics="pizza-orders",
         bootstrap_servers=KAFKA_SERVERS,
         group_id="kitchen-team",
         value_deserializer=lambda m: json.loads(m.decode("utf-8")),
         auto_offset_reset="earliest",
     )
 
-    logging.info("🍳 Kitchen Worker מוכן – ממתין להזמנות...")
+    print("🍳 Kitchen Worker מוכן – ממתין להזמנות...")
 
     for msg in consumer:
         order = msg.value
         order_id   = order["order_id"]
         pizza_type = order.get("pizza_type", "Unknown")
 
-        logging.info(f"📦 קיבלתי מטען: {order_id} ({pizza_type}) – מאבטח 15 שניות...")
+        print(f"📦 קיבלתי מטען: {order_id} ({pizza_type}) – מאבטח 15 שניות...")
         time.sleep(15)
 
         # עדכון סטטוס ל-DELIVERED (אם לא נשרף ע"י Enricher)
@@ -50,14 +48,14 @@ def main():
         )
 
         if result.modified_count:
-            logging.info(f"✅ {order_id} עודכן ל-DELIVERED")
+            print(f"✅ {order_id} עודכן ל-DELIVERED")
         else:
-            logging.info(f"⚠️  {order_id} לא עודכן (כנראה BURNT או כבר DELIVERED)")
+            print(f"⚠️  {order_id} לא עודכן (כנראה BURNT או כבר DELIVERED)")
 
         # Cache Invalidation
         deleted = redis_client.delete(f"order:{order_id}")
         if deleted:
-            logging.info(f"🗑️  Cache נמחק עבור {order_id}")
+            print(f"🗑️  Cache נמחק עבור {order_id}")
 
 
 if __name__ == "__main__":
