@@ -95,7 +95,6 @@ def main():
         try:
             process_order(order)
         except Exception as e:
-            # לא קורסים על הזמנה אחת פגומה – ממשיכים
             print(f"❌ Error processing order {order.get('order_id')}: {e}")
 
 

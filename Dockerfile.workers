@@ -10,6 +10,7 @@ COPY kitchen_worker.py .
 COPY text_worker.py .
 COPY preprocessor.py .
 COPY enricher.py .
+COPY risk_evaluator.py .
 
 # Data files required by preprocessor and enricher
 COPY pizza_prep.json .

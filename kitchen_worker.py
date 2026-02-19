@@ -1,8 +1,3 @@
-"""
-מבצע מגש פיצה 🍕 - Kitchen Worker (Worker א')
-"הלוגיסטיקה": מחכה 15 שניות, מעדכן ל-DELIVERED, מוחק מ-Redis.
-"""
-
 import os
 import json
 import time

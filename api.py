@@ -1,12 +1,3 @@
-"""
-מבצע מגש פיצה 🍕 - API Gateway
-Part 1 requirements:
-  POST /uploadfile     – קובץ JSON עם מערך הזמנות
-  POST /orders/batch   – JSON body עם מערך (alias שמופיע ב-curl acceptance test)
-  POST /orders         – הזמנה בודדת עם UUID חדש
-  GET  /order/{id}     – Cache-Aside (Redis → MongoDB)
-"""
-
 import os, json, time, logging
 from typing import List, Optional
 from uuid import UUID, uuid4
@@ -80,22 +71,6 @@ async def upload_file(file: UploadFile = File(...)):
         orders: list = json.loads(raw)
     except json.JSONDecodeError:
         raise HTTPException(400, "Invalid JSON file")
-
-    ids = []
-    for item in orders:
-        o = PizzaOrder(**item)
-        _save_and_publish(o.model_dump())
-        ids.append(o.order_id)
-
-    producer.flush()
-    return {"ingested": len(ids), "order_ids": ids}
-
-@app.post("/orders/batch", summary="העלאת מערך הזמנות (JSON body)")
-async def orders_batch(request: Request):
-    try:
-        orders: list = await request.json()
-    except Exception:
-        raise HTTPException(400, "Invalid JSON body")
 
     ids = []
     for item in orders:
